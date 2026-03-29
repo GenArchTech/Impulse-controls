@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Impulse Control AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at top, #0a0a0a, #000);
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+
+    h2 {
+      color: #00e5ff;
+      text-shadow: 0 0 10px #00e5ff;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 15px;
+      padding: 15px;
+      margin: 15px 0;
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+    }
+
+    .stat {
+      font-size: 18px;
+      margin: 5px 0;
+    }
+
+    button {
+      width: 45%;
+      padding: 12px;
+      margin: 8px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      background: #111;
+      color: #00e5ff;
+      box-shadow: 0 0 10px #00e5ff;
+    }
+
+    button:hover {
+      background: #00e5ff;
+      color: black;
+    }
+
+    .lose {
+      color: #ff3b3b;
+      box-shadow: 0 0 10px #ff3b3b;
+    }
+
+    .warning {
+      color: red;
+      font-weight: bold;
+      text-shadow: 0 0 10px red;
+    }
+
+    .safe {
+      color: #00ff88;
+    }
+
+    #emergencyWrap {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>⚡ Impulse Control AI</h2>
+
+<!-- ALCOHOL -->
+<div class="card">
+  <h3>🍺 Alcohol</h3>
+  <div class="stat">Streak: <span id="alc_streak">0</span></div>
+  <div class="stat">Last Used: <span id="alc_last">Never</span></div>
+  <button onclick="win('alc')">WIN</button>
+  <button class="lose" onclick="lose('alc')">LOST</button>
+</div>
+
+<!-- CIGARETTES -->
+<div class="card">
+  <h3>🚬 Cigarettes</h3>
+  <div class="stat">Streak: <span id="cig_streak">0</span></div>
+  <div class="stat">Last Used: <span id="cig_last">Never</span></div>
+  <button onclick="win('cig')">WIN</button>
+  <button class="lose" onclick="lose('cig')">LOST</button>
+</div>
+
+<!-- APPS -->
+<div class="card">
+  <h3>📱 Apps</h3>
+  <div class="stat">Streak: <span id="app_streak">0</span></div>
+  <div class="stat">Last Loss: <span id="app_last">Never</span></div>
+  <button onclick="win('app')">WIN</button>
+  <button class="lose" onclick="lose('app')">LOST</button>
+</div>
+
+<hr>
+
+<h3>⚠️ Risk Monitor</h3>
+<div id="warning" class="safe">Analyzing...</div>
+
+<!-- INSIGHTS -->
+<div class="card">
+  <h3>🧠 Insights</h3>
+  <div id="insight1"></div>
+  <div id="insight2"></div>
+  <div id="insight3"></div>
+</div>
+
+<!-- EMERGENCY -->
+<div id="emergencyWrap">
+  <button onclick="emergencyMode()">🚨 EMERGENCY</button>
+</div>
+
+<div id="emergencyBox" style="display:none;">
+  <h3>STOP. THINK.</h3>
+  <p>Wait 10 minutes. Do NOT act.</p>
+  <p>Do pushups / walk / drink water.</p>
+</div>
+
+<script>
+
+// ===== UTIL =====
+function getNowString() {
+  return new Date().toLocaleString();
+}
+
+function getHour() {
+  return new Date().getHours();
+}
+
+function getData(key, def) {
+  return JSON.parse(localStorage.getItem(key)) ?? def;
+}
+
+function setData(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+// ===== ACTIONS =====
+function win(type) {
+  let streak = getData(type+"_streak", 0);
+  setData(type+"_streak", streak + 1);
+  updateUI();
+}
+
+function lose(type) {
+  let streak = getData(type+"_streak", 0);
+  streak--;
+
+  setData(type+"_streak", streak);
+  setData(type+"_last", getNowString());
+
+  let history = getData(type+"_history", []);
+  history.push(getHour());
+  setData(type+"_history", history);
+
+  updateUI();
+}
+
+// ===== UI =====
+function updateUI() {
+  ["alc","cig","app"].forEach(type => {
+    let streak = getData(type+"_streak",0);
+    let last = getData(type+"_last","Never");
+
+    document.getElementById(type+"_streak").innerText = streak;
+    document.getElementById(type+"_last").innerText = last;
+
+    let el = document.getElementById(type+"_streak");
+    el.style.color = streak < 0 ? "#ff3b3b" : "#00ff88";
+
+    if (streak < 0) {
+      document.getElementById(type+"_last").innerText += " | RECOVERY MODE";
+    }
+  });
+
+  checkRisk();
+  generateInsights();
+}
+
+// ===== RISK =====
+function checkRisk() {
+  let hour = getHour();
+
+  let total =
+    getData("cig_history", []).filter(h=>h===hour).length +
+    getData("alc_history", []).filter(h=>h===hour).length +
+    getData("app_history", []).filter(h=>h===hour).length;
+
+  let el = document.getElementById("warning");
+
+  if (total >= 4) {
+    el.innerText = "🚨 EXTREME RISK";
+    el.className = "warning";
+  } else if (total >= 2) {
+    el.innerText = "⚠️ HIGH RISK";
+    el.className = "warning";
+  } else {
+    el.innerText = "✅ STABLE";
+    el.className = "safe";
+  }
+}
+
+// ===== INSIGHTS =====
+function generateInsights() {
+
+  let all = [
+    ...getData("cig_history", []),
+    ...getData("alc_history", []),
+    ...getData("app_history", [])
+  ];
+
+  if (all.length === 0) {
+    document.getElementById("insight1").innerText = "No data yet.";
+    document.getElementById("insight2").innerText = "";
+    document.getElementById("insight3").innerText = "";
+    return;
+  }
+
+  let count = {};
+  all.forEach(h => count[h] = (count[h] || 0) + 1);
+
+  let worstHour = Object.keys(count).reduce((a,b)=> count[a]>count[b]?a:b);
+
+  document.getElementById("insight1").innerText =
+    "⚠️ Weak Hour: " + worstHour + ":00";
+
+  document.getElementById("insight2").innerText =
+    "📉 Recent Losses: " + all.slice(-5).length;
+
+  let totalDebt =
+    getData("alc_streak",0) +
+    getData("cig_streak",0) +
+    getData("app_streak",0);
+
+  document.getElementById("insight3").innerText =
+    totalDebt < 0
+      ? "🔴 Recovery Mode Active"
+      : "🟢 Stable Control";
+}
+
+// ===== EMERGENCY =====
+function emergencyMode() {
+  document.getElementById("emergencyBox").style.display = "block";
+}
+
+// INIT
+updateUI();
+
+</script>
+
+</body>
+</html>
